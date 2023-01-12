@@ -44,18 +44,6 @@ extern "C" {
  */
 void* pio_midi_uart_create(uint8_t txgpio, uint8_t rxgpio);
 
-void pio_midi_uart_set_rx_irq_enable(PIO pio, uint sm, bool enable);
-void pio_midi_uart_set_tx_irq_enable(PIO pio, uint sm, bool enable);
-bool pio_midi_uart_is_rx_irq_pending(PIO pio, uint sm);
-bool pio_midi_uart_is_tx_irq_pending(PIO pio, uint sm);
-
-/**
- * @brief free a previously allocated PIO MIDI port
- * 
- * @param midi_port a pointer to a MIDI port created by pio_midi_uart_create()
- */
-void pio_midi_uart_free(void* midi_port);
-
 /**
  * @brief fetch up to buflen bytes from the MIDI UART RX buffer
  *

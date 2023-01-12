@@ -71,6 +71,42 @@ typedef struct MIDI_UART_S {
  */
 static PIO_MIDI_UART_T pio_midi_uarts[MAX_PIO_MIDI_UARTS];
 
+/**
+ * @brief enable or disable the FIFO not empty IRQ for a MIDI UART's RX FIFO
+ *
+ * @param pio the PIO the MIDI UART uses
+ * @param sm the state machine the MIDI UART RX uses
+ * @param enable true to enable the IRQ, false otherwise
+ */
+static void pio_midi_uart_set_rx_irq_enable(PIO pio, uint sm, bool enable);
+
+/**
+ * @brief enable or disable the FIFO not full IRQ for a MIDI UART's TX FIFO
+ *
+ * @param pio the PIO the MIDI UART uses
+ * @param sm the state machine the MIDI UART TX uses
+ * @param enable true to enable the IRQ, false otherwise
+ */
+static void pio_midi_uart_set_tx_irq_enable(PIO pio, uint sm, bool enable);
+
+/**
+ * @brief
+ *
+ * @param pio the PIO the MIDI UART uses
+ * @param sm the state machine the MIDI UART TX uses
+ * @ return true if the MIDI UART's RX FIFO not empty IRQ is pending
+ */
+static bool pio_midi_uart_is_rx_irq_pending(PIO pio, uint sm);
+
+/**
+ * @brief
+ *
+ * @param pio the PIO the MIDI UART uses
+ * @param sm the state machine the MIDI UART TX uses
+ * @ return true if the MIDI UART's TX FIFO not FULL IRQ is pending
+ */
+static bool pio_midi_uart_is_tx_irq_pending(PIO pio, uint sm);
+
 static void on_pio_midi_uart_irq(PIO_MIDI_UART_T *pio_midi_uart);
 
 static void on_pio_midi_uart0_irq()
