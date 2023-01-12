@@ -102,7 +102,8 @@ static inline void midi_tx_program_init(PIO pio, uint sm, uint offset, uint pin_
     // input when the output-enable signal is high.
     gpio_set_oeover(pin_tx, GPIO_OVERRIDE_INVERT);
     gpio_set_outover(pin_tx, GPIO_OVERRIDE_LOW);
-
+    // MIDI is a 5mA current loop, so the default 4mA drive strength is not enough
+    gpio_set_drive_strength(pin_tx, GPIO_DRIVE_STRENGTH_8MA);
     // We only need TX, so get an 8-deep FIFO!
     sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
 
