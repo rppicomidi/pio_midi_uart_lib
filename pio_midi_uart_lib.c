@@ -319,3 +319,20 @@ void pio_midi_uart_drain_tx_buffer(void* instance)
     }
     irq_set_enabled(midi_uart->irq, true);
 }
+
+void pio_midi_uart_show_pio_info(void* instance)
+{
+    if (instance == NULL) {
+        printf("pio_midi_uart_show_pio_info: Error MIDI port instance is NULL\r\n");
+        return;
+    }
+    PIO_MIDI_UART_T *midi_uart = (PIO_MIDI_UART_T *)instance;
+    uint8_t idx = 0;
+    for (;idx < MAX_PIO_MIDI_UARTS && &pio_midi_uarts[idx] != midi_uart; idx++) {
+    }
+    if (idx == MAX_PIO_MIDI_UARTS) {
+        printf("pio_midi_uart_show_pio_info: Error MIDI port instance is not valid\r\n");
+        return;
+    }
+    printf("MIDI Port %u using PIO%c rx_sm=%u tx_sm=%u irq=%u\r\n", idx, midi_uart->pio == pio0 ? '0':'1', midi_uart->rx_sm, midi_uart->tx_sm, midi_uart->irq);
+}

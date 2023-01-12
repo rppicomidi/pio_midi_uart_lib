@@ -76,6 +76,13 @@ uint8_t pio_midi_uart_write_tx_buffer(void *midi_port, uint8_t *buffer, RING_BUF
  */
 void pio_midi_uart_drain_tx_buffer(void *midi_port);
 
+/**
+ * @brief print out PIO-related info about the MIDI port
+ *
+ * @param midi_port a pointer to a MIDI port created by pio_midi_uart_create()
+ */
+void pio_midi_uart_show_pio_info(void* midi_port);
+
 #ifdef __cplusplus
 }
 #endif
