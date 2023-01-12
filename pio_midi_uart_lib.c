@@ -55,6 +55,9 @@ typedef struct MIDI_UART_S {
     uint tx_gpio;   // The TX pin
     uint rx_gpio;   // The RX pin
     uint irq;       // The PIO IRQ number
+    uint32_t rx_mask; // The rx queue not empty interrupt mask
+    uint32_t tx_mask; // The tx queue not empty interrupt mask
+    io_ro_32* ints; // the PIO IRQ status register for this UART
     uint rx_offset; // The offset in PIO program RAM of the RX code
     uint tx_offset; // The offset in PIO program RAM of the TX code
     // PIO UART ring buffer info
@@ -78,7 +81,10 @@ static PIO_MIDI_UART_T pio_midi_uarts[MAX_PIO_MIDI_UARTS];
  * @param sm the state machine the MIDI UART RX uses
  * @param enable true to enable the IRQ, false otherwise
  */
-static void pio_midi_uart_set_rx_irq_enable(PIO pio, uint sm, bool enable);
+static inline void pio_midi_uart_set_rx_irq_enable(PIO pio, uint sm, bool enable)
+{
+    pio_set_irqn_source_enabled(pio, sm == 0 ? 0 : 1, sm == 0 ? pis_sm0_rx_fifo_not_empty : pis_sm2_rx_fifo_not_empty, enable);
+}
 
 /**
  * @brief enable or disable the FIFO not full IRQ for a MIDI UART's TX FIFO
@@ -87,7 +93,10 @@ static void pio_midi_uart_set_rx_irq_enable(PIO pio, uint sm, bool enable);
  * @param sm the state machine the MIDI UART TX uses
  * @param enable true to enable the IRQ, false otherwise
  */
-static void pio_midi_uart_set_tx_irq_enable(PIO pio, uint sm, bool enable);
+static inline void pio_midi_uart_set_tx_irq_enable(PIO pio, uint sm, bool enable)
+{
+    pio_set_irqn_source_enabled(pio, sm == 1 ? 0 : 1, sm == 1 ? pis_sm1_tx_fifo_not_full : pis_sm3_tx_fifo_not_full, enable);
+}
 
 /**
  * @brief
@@ -96,7 +105,10 @@ static void pio_midi_uart_set_tx_irq_enable(PIO pio, uint sm, bool enable);
  * @param sm the state machine the MIDI UART TX uses
  * @ return true if the MIDI UART's RX FIFO not empty IRQ is pending
  */
-static bool pio_midi_uart_is_rx_irq_pending(PIO pio, uint sm);
+static inline bool pio_midi_uart_is_rx_irq_pending(PIO_MIDI_UART_T* midi_uart)
+{
+    return (*(midi_uart->ints) & midi_uart->rx_mask) != 0;
+}
 
 /**
  * @brief
@@ -105,7 +117,10 @@ static bool pio_midi_uart_is_rx_irq_pending(PIO pio, uint sm);
  * @param sm the state machine the MIDI UART TX uses
  * @ return true if the MIDI UART's TX FIFO not FULL IRQ is pending
  */
-static bool pio_midi_uart_is_tx_irq_pending(PIO pio, uint sm);
+static inline bool pio_midi_uart_is_tx_irq_pending(PIO_MIDI_UART_T* midi_uart)
+{
+    return (*(midi_uart->ints) & midi_uart->tx_mask) != 0;
+}
 
 static void on_pio_midi_uart_irq(PIO_MIDI_UART_T *pio_midi_uart);
 
@@ -131,62 +146,24 @@ static void on_pio_midi_uart3_irq()
 
 static void on_pio_midi_uart_irq(PIO_MIDI_UART_T *pio_midi_uart)
 {
-    while (pio_midi_uart_is_rx_irq_pending(pio_midi_uart->pio, pio_midi_uart->rx_sm) && 
-            !pio_sm_is_rx_fifo_empty(pio_midi_uart->pio, pio_midi_uart->rx_sm) && 
-            !ring_buffer_is_full_unsafe(&pio_midi_uart->rx_rb)) {
-        uint8_t val = midi_rx_program_get(pio_midi_uart->pio, pio_midi_uart->rx_sm);
-        ring_buffer_push_unsafe(&pio_midi_uart->rx_rb, &val, 1);
+    if (pio_midi_uart_is_rx_irq_pending(pio_midi_uart)) {
+        while (!pio_sm_is_rx_fifo_empty(pio_midi_uart->pio, pio_midi_uart->rx_sm) && 
+                !ring_buffer_is_full_unsafe(&pio_midi_uart->rx_rb)) {
+            uint8_t val = midi_rx_program_get(pio_midi_uart->pio, pio_midi_uart->rx_sm);
+            ring_buffer_push_unsafe(&pio_midi_uart->rx_rb, &val, 1);
+        }
     }
-    while (pio_midi_uart_is_tx_irq_pending(pio_midi_uart->pio, pio_midi_uart->tx_sm) &&
-            !ring_buffer_is_empty_unsafe(&pio_midi_uart->tx_rb) &&
-            midi_tx_program_can_put(pio_midi_uart->pio, pio_midi_uart->tx_sm)) {
-        uint8_t val;
-        (void)ring_buffer_pop_unsafe(&pio_midi_uart->tx_rb, &val, 1);
-        midi_tx_program_put(pio_midi_uart->pio, pio_midi_uart->tx_sm, val);
+    if (pio_midi_uart_is_tx_irq_pending(pio_midi_uart)) {
+        while (!ring_buffer_is_empty_unsafe(&pio_midi_uart->tx_rb) &&
+                midi_tx_program_can_put(pio_midi_uart->pio, pio_midi_uart->tx_sm)) {
+            uint8_t val;
+            (void)ring_buffer_pop_unsafe(&pio_midi_uart->tx_rb, &val, 1);
+            midi_tx_program_put(pio_midi_uart->pio, pio_midi_uart->tx_sm, val);
+        }
+        if (ring_buffer_is_empty_unsafe(&pio_midi_uart->tx_rb)) {
+            pio_midi_uart_set_tx_irq_enable(pio_midi_uart->pio, pio_midi_uart->tx_sm, false);
+        }
     }
-    if (ring_buffer_is_empty_unsafe(&pio_midi_uart->tx_rb)) {
-        pio_midi_uart_set_tx_irq_enable(pio_midi_uart->pio, pio_midi_uart->tx_sm, false);
-    }
-}
-
-void pio_midi_uart_set_rx_irq_enable(PIO pio, uint sm, bool enable)
-{
-    pio_set_irqn_source_enabled(pio, sm == 0 ? 0 : 1, sm == 0 ? pis_sm0_rx_fifo_not_empty : pis_sm2_rx_fifo_not_empty, enable);
-}
-
-void pio_midi_uart_set_tx_irq_enable(PIO pio, uint sm, bool enable)
-{
-    pio_set_irqn_source_enabled(pio, sm == 1 ? 0 : 1, sm == 1 ? pis_sm1_tx_fifo_not_full : pis_sm3_tx_fifo_not_full, enable);
-}
-
-bool pio_midi_uart_is_tx_irq_pending(PIO pio, uint sm)
-{
-    uint32_t mask = 0;
-    bool pending = false;
-    if (sm == 1) {
-        mask = 1ul << pis_sm1_tx_fifo_not_full;
-        pending = (pio->ints0 & mask) != 0;
-    }
-    else if (sm == 3) {
-        mask = 1ul << pis_sm3_tx_fifo_not_full;
-        pending = (pio->ints1 & mask) != 0;
-    }
-    return pending;
-}
-
-bool pio_midi_uart_is_rx_irq_pending(PIO pio, uint sm)
-{
-    uint32_t mask = 0;
-    bool pending = false;
-    if (sm == 0) {
-        mask = 1ul << pis_sm0_rx_fifo_not_empty;
-        pending = (pio->ints0 & mask) != 0;
-    }
-    else if (sm == 2) {
-        mask = 1ul << pis_sm2_rx_fifo_not_empty;
-        pending = (pio->ints1 & mask) != 0;
-    }
-    return pending;
 }
 
 void* pio_midi_uart_create(uint8_t txgpio, uint8_t rxgpio)
@@ -259,6 +236,17 @@ void* pio_midi_uart_create(uint8_t txgpio, uint8_t rxgpio)
     midi_uart->tx_gpio = txgpio;
     midi_uart->rx_gpio = rxgpio;
     midi_uart->irq = irq;
+    if (rx_sm == 0) {
+        midi_uart->rx_mask = 1ul << pis_sm0_rx_fifo_not_empty;
+        midi_uart->tx_mask = 1ul << pis_sm1_tx_fifo_not_full;
+        midi_uart->ints = &pio->ints0;
+    }
+    else {
+        midi_uart->rx_mask = 1ul << pis_sm2_rx_fifo_not_empty;
+        midi_uart->tx_mask = 1ul << pis_sm3_tx_fifo_not_full;
+        midi_uart->ints = &pio->ints1;
+    }
+
     midi_rx_program_init(pio, rx_sm, midi_uart->rx_offset, rxgpio, MIDI_BAUD_RATE);
     midi_tx_program_init(pio, tx_sm, midi_uart->tx_offset, txgpio, MIDI_BAUD_RATE);
     // Prepare the MIDI UART ring buffers and interrupt handler and enable interrupts
