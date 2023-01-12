@@ -99,8 +99,7 @@ static void on_pio_midi_uart_irq(PIO_MIDI_UART_T *pio_midi_uart)
             !pio_sm_is_rx_fifo_empty(pio_midi_uart->pio, pio_midi_uart->rx_sm) && 
             !ring_buffer_is_full_unsafe(&pio_midi_uart->rx_rb)) {
         uint8_t val = midi_rx_program_get(pio_midi_uart->pio, pio_midi_uart->rx_sm);
-        if (val < 0xf0) // filter out realime
-            ring_buffer_push_unsafe(&pio_midi_uart->rx_rb, &val, 1);
+        ring_buffer_push_unsafe(&pio_midi_uart->rx_rb, &val, 1);
     }
     while (pio_midi_uart_is_tx_irq_pending(pio_midi_uart->pio, pio_midi_uart->tx_sm) &&
             !ring_buffer_is_empty_unsafe(&pio_midi_uart->tx_rb) &&
