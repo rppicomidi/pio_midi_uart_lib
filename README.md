@@ -4,6 +4,9 @@ This library adds up 4 PIO-based MIDI serial ports to a Rasberry Pi Pico.
 Each serial port has both MIDI IN and MIDI OUT. Data I/O is interrupt
 driven and is designed to be read and written from a simple loop.
 
+Please report bugs and feature requests as github issues on this project.
+Pull requests that add features are welcome.
+
 # Library features:
 - The MIDI TX signal and MIDI RX signal can be on arbitrary pins.
 - The MIDI RX pin of each MIDI UART is configured as an input pin
@@ -31,3 +34,8 @@ you wish to create.
 see if the interrupt handler has loaded any characters to the RX ring buffer.
 7. In your application main loop, add messages to send by calling
 `pio_midi_uart_write_tx_buffer()` and then call `pio_midi_uart_drain_tx_buffer()` to kick off a new transmission.
+
+# TODO and possible future features
+- Need to publish an example program that uses this library.
+- If there is a feature request for it, add an API to handle more MIDI TX
+than MIDI RX or vice versa. For example, you may only need one MIDI IN, but you need seven MIDI OUT. It should be possible, but it is much more work.
