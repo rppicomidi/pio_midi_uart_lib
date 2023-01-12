@@ -200,8 +200,8 @@ void* pio_midi_uart_create(uint8_t txgpio, uint8_t rxgpio)
     int idx = 0;
     while (pio != NULL) {
         if (pio_sm_is_claimed(pio, rx_sm) || pio_sm_is_claimed(pio, tx_sm)) {
-            ++rx_sm;
-            ++tx_sm;
+            rx_sm +=2;
+            tx_sm +=2;
             ++irq;
             ++idx;
             if (pio_sm_is_claimed(pio, rx_sm) || pio_sm_is_claimed(pio, tx_sm)) {
@@ -249,6 +249,9 @@ void* pio_midi_uart_create(uint8_t txgpio, uint8_t rxgpio)
         midi_uart->tx_offset = pio_midi_uarts[idx-1].tx_offset;
     }
     irq_set_enabled(irq, false);
+    pio_sm_claim(pio, rx_sm);
+    pio_sm_claim(pio, tx_sm);
+
     midi_uart->pio = pio;
 
     midi_uart->rx_sm = rx_sm;
