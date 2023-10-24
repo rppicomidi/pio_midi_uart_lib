@@ -4,6 +4,9 @@ This library adds up 4 PIO-based MIDI serial ports to a Rasberry Pi Pico.
 Each serial port has both MIDI IN and MIDI OUT. Data I/O is interrupt
 driven and is designed to be read and written from a simple loop.
 
+If you need more MIDI OUT than MIDI IN, you can create a PIO MIDI OUT port
+without creating a MIDI IN port for up to 8 MIDI OUT and no MIDI IN.
+
 Please report bugs and feature requests as github issues on this project.
 Pull requests that add features are welcome.
 
@@ -21,6 +24,8 @@ used for MIDI UART, up to 4 MIDI UARTs can be created.
 This library API is very similar to [midi_uart_lib](https://github.com/rppicomidi/midi_uart_lib) except it does not use the native hardware UARTs. The advantages of this library are:
 - The MIDI TX output is open drain. This makes hardware interface easier.
 - RP2040 has only 2 hardware UARTs, and UART0 is often hard-coded for use as the debug console. If you need more than one MIDI UART, this technique is likely your only practical option.
+- RP2040 UARTs are always bidirectional. With this library, you may create
+MIDI OUT ports without creating MIDI IN ports
 
 # How to use
 1. Create a subdirectory (e.g. `lib`) under your main application library.
@@ -35,7 +40,10 @@ see if the interrupt handler has loaded any characters to the RX ring buffer.
 7. In your application main loop, add messages to send by calling
 `pio_midi_uart_write_tx_buffer()` and then call `pio_midi_uart_drain_tx_buffer()` to kick off a new transmission.
 
+# Sample program
+The [midi-multistream2usbdev](https://github.com/rppicomidi/midi-multistream2usbdev) project demonstrates creating two bi-directional
+MIDI ports and 4 MIDI OUT only ports.
+
 # TODO and possible future features
-- Need to publish an example program that uses this library.
-- If there is a feature request for it, add an API to handle more MIDI TX
-than MIDI RX or vice versa. For example, you may only need one MIDI IN, but you need seven MIDI OUT. It should be possible, but it is much more work.
+- If there is a feature request for it, add an API to handle more MIDI IN
+than MIDI OUT.
