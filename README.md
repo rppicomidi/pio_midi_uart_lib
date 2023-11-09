@@ -44,6 +44,10 @@ see if the interrupt handler has loaded any characters to the RX ring buffer.
 The [midi-multistream2usbdev](https://github.com/rppicomidi/midi-multistream2usbdev) project demonstrates creating two bi-directional
 MIDI ports and 4 MIDI OUT only ports.
 
+If you want to see 6-IN 6-OUT MIDI interface that uses both this library and [midi_uart_lib](https://github.com/rppicomidi/midi_uart_lib), check out the [@Ming-Kerr fork of
+midi-multistream2usbdev](https://github.com/Ming-Kerr/midi-multistream2usbdev) that is designed to run on [this](https://github.com/diyelectromusic/sdemp_pcbs/tree/main/PicoMIDIRouter) hardware.
+
+
 # TODO and possible future features
 - If there is a feature request for it, add an API to handle more MIDI IN
 than MIDI OUT.
