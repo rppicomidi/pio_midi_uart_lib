@@ -37,10 +37,22 @@
 
 // You can override these to save space if need be
 #ifndef MAX_PIO_MIDI_UARTS
+#if NUM_PIOS == 2
 #define MAX_PIO_MIDI_UARTS 4
+#elif NUM_PIOS == 3
+#define MAX_PIO_MIDI_UARTS 6
+#else
+#error "unsupported NUM_PIOS"
+#endif
 #endif
 #ifndef MAX_PIO_MIDI_OUTS
+#if NUM_PIOS == 2
 #define MAX_PIO_MIDI_OUTS 8
+#elif NUM_PIOS == 3
+#define MAX_PIO_MIDI_OUTS 12
+#else
+#error "unsupported NUM_PIOS"
+#endif
 #endif
 #ifndef MIDI_UART_RING_BUFFER_LENGTH
 #define MIDI_UART_RING_BUFFER_LENGTH 128
@@ -50,8 +62,15 @@
 #endif
 
 #define PIO_PROG_INVALID_OFFSET 0xFFFF
+#if NUM_PIOS == 3
+static uint pio_prog_rx_offset[3] = {PIO_PROG_INVALID_OFFSET, PIO_PROG_INVALID_OFFSET, PIO_PROG_INVALID_OFFSET};
+static uint pio_prog_tx_offset[3] = {PIO_PROG_INVALID_OFFSET, PIO_PROG_INVALID_OFFSET, PIO_PROG_INVALID_OFFSET};
+#elif NUM_PIOS == 2
 static uint pio_prog_rx_offset[2] = {PIO_PROG_INVALID_OFFSET, PIO_PROG_INVALID_OFFSET};
 static uint pio_prog_tx_offset[2] = {PIO_PROG_INVALID_OFFSET, PIO_PROG_INVALID_OFFSET};
+#else
+#error "unsupported NUM_PIOS"
+#endif
 /**
  * @struct defines the properties of PIO MIDI UART
  */
@@ -199,6 +218,18 @@ static void on_pio_midi_uart3_irq()
     on_pio_midi_uart_irq(pio_midi_uarts+3);
 }
 
+#if NUM_PIOS > 2
+static void on_pio_midi_uart4_irq()
+{
+    on_pio_midi_uart_irq(pio_midi_uarts+4);
+}
+
+static void on_pio_midi_uart5_irq()
+{
+    on_pio_midi_uart_irq(pio_midi_uarts+5);
+}
+#endif
+
 static void on_pio_midi_uart_irq(PIO_MIDI_UART_T *pio_midi_uart)
 {
     if (pio_midi_uart_is_rx_irq_pending(pio_midi_uart)) {
@@ -243,7 +274,18 @@ static void on_pio_midi_out67_irq()
     on_pio_midi_out_irq(pio_midi_outs+6);
     on_pio_midi_out_irq((pio_midi_outs+6)->out_shared_irq);
 }
-
+#if NUM_PIOS > 2
+static void on_pio_midi_out89_irq()
+{
+    on_pio_midi_out_irq(pio_midi_outs+8);
+    on_pio_midi_out_irq((pio_midi_outs+8)->out_shared_irq);
+}
+static void on_pio_midi_out1011_irq()
+{
+    on_pio_midi_out_irq(pio_midi_outs+10);
+    on_pio_midi_out_irq((pio_midi_outs+10)->out_shared_irq);
+}
+#endif
 static void on_pio_midi_out_irq(PIO_MIDI_OUT_T *pio_midi_out)
 {
     if (pio_midi_out && pio_midi_out_is_tx_irq_pending(pio_midi_out)) {
@@ -285,6 +327,17 @@ void* pio_midi_uart_create(uint8_t txgpio, uint8_t rxgpio)
                     irq = PIO1_IRQ_0;
                     idx = 2;
                 }
+#if NUM_PIOS > 2
+                else if (pio == pio1) {
+                    // try again with PIO2
+                    pio = pio2;
+                    pio_idx = 2;
+                    rx_sm = 0;
+                    tx_sm = 1;
+                    irq = PIO2_IRQ_0;
+                    idx = 4;
+                }
+#endif
                 else {
                     // no PIO resources available
                     pio = NULL;
@@ -373,6 +426,14 @@ void* pio_midi_uart_create(uint8_t txgpio, uint8_t rxgpio)
     else if (idx == 3) {
         irq_set_exclusive_handler(midi_uart->irq, on_pio_midi_uart3_irq);
     }
+#if NUM_PIOS > 2
+    else if (idx == 4) {
+        irq_set_exclusive_handler(midi_uart->irq, on_pio_midi_uart4_irq);
+    }
+    else if (idx == 5) {
+        irq_set_exclusive_handler(midi_uart->irq, on_pio_midi_uart5_irq);
+    }
+#endif
     // enable the rx state machine IRQ
     pio_midi_uart_set_rx_irq_enable(pio, rx_sm, true);
     // disable the tx state machine IRQ (no data to send yet)
@@ -411,6 +472,15 @@ void* pio_midi_out_create(uint8_t txgpio)
                     tx_sm = 0;
                     irq = PIO1_IRQ_0;
                 }
+#if NUM_PIOS > 2
+                if (pio == pio1) {
+                    // try again with PIO2
+                    pio = pio2;
+                    pio_idx = 1;
+                    tx_sm = 0;
+                    irq = PIO2_IRQ_0;
+                }
+#endif
                 else {
                     // no PIO resources available
                     return NULL;
@@ -473,6 +543,14 @@ void* pio_midi_out_create(uint8_t txgpio)
     else if (idx/2 == 3) {
         irq_set_exclusive_handler(midi_out->irq, on_pio_midi_out67_irq);
     }
+#if NUM_PIOS > 2
+    else if (idx/2 == 4) {
+        irq_set_exclusive_handler(midi_out->irq, on_pio_midi_out89_irq);
+    }
+    else if (idx/2 == 5) {
+        irq_set_exclusive_handler(midi_out->irq, on_pio_midi_out1011_irq);
+    }
+#endif
     // disable the tx state machine IRQ (no data to send yet)
     pio_midi_out_set_tx_irq_enable(pio, tx_sm, false);
 
@@ -560,7 +638,7 @@ void pio_midi_uart_show_pio_info(void* instance)
         printf("pio_midi_uart_show_pio_info: Error MIDI UART port instance is not valid\r\n");
         return;
     }
-    printf("MIDI UART Port %u using PIO%c rx_sm=%u tx_sm=%u irq=%u\r\n", idx, midi_uart->pio == pio0 ? '0':'1', midi_uart->rx_sm, midi_uart->tx_sm, midi_uart->irq);
+    printf("MIDI UART Port %u using PIO%c rx_sm=%u tx_sm=%u irq=%u\r\n", idx, PIO_NUM(midi_uart->pio)+'0', midi_uart->rx_sm, midi_uart->tx_sm, midi_uart->irq);
 }
 
 void pio_midi_out_show_pio_info(void* instance)
@@ -577,7 +655,7 @@ void pio_midi_out_show_pio_info(void* instance)
         printf("pio_midi_out_show_pio_info: Error MIDI OUT port instance is not valid\r\n");
         return;
     }
-    printf("MIDI OUT Port %u using PIO%c tx_sm=%u irq=%u ", idx, midi_out->pio == pio0 ? '0':'1', midi_out->tx_sm, midi_out->irq);
+    printf("MIDI OUT Port %u using PIO%c tx_sm=%u irq=%u ", idx, PIO_NUM(midi_out->pio)+'0', midi_out->tx_sm, midi_out->irq);
     if (midi_out->out_shared_irq) {
         uint8_t jdx = 0;
         for (;jdx < MAX_PIO_MIDI_OUTS && &pio_midi_outs[jdx] != midi_out->out_shared_irq; jdx++) {
