@@ -595,10 +595,11 @@ void pio_midi_uart_drain_tx_buffer(void* instance)
         uint8_t val;
         if (pio_sm_is_tx_fifo_empty(midi_uart->pio, midi_uart->tx_sm)) {
             // then last transmission is complete. Kick start a new one
-            RING_BUFFER_SIZE_TYPE result = ring_buffer_pop_unsafe(&midi_uart->tx_rb, &val, 1);
+            volatile RING_BUFFER_SIZE_TYPE result = ring_buffer_pop_unsafe(&midi_uart->tx_rb, &val, 1);
             assert(result == 1);
             pio_sm_put(midi_uart->pio, midi_uart->tx_sm, val);
             pio_midi_uart_set_tx_irq_enable(midi_uart->pio, midi_uart->tx_sm, true);
+            (void)result;
         }
     }
     irq_set_enabled(midi_uart->irq, true);
@@ -615,10 +616,11 @@ void pio_midi_out_drain_tx_buffer(void* instance)
         uint8_t val;
         if (pio_sm_is_tx_fifo_empty(midi_out->pio, midi_out->tx_sm)) {
             // then last transmission is complete. Kick start a new one
-            RING_BUFFER_SIZE_TYPE result = ring_buffer_pop_unsafe(&midi_out->tx_rb, &val, 1);
+            volatile RING_BUFFER_SIZE_TYPE result = ring_buffer_pop_unsafe(&midi_out->tx_rb, &val, 1);
             assert(result == 1);
             pio_sm_put(midi_out->pio, midi_out->tx_sm, val);
             pio_midi_uart_set_tx_irq_enable(midi_out->pio, midi_out->tx_sm, true);
+            (void)result;
         }
     }
     irq_set_enabled(midi_out->irq, true);
